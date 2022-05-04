@@ -45,44 +45,52 @@ export async function watch(options: CompilerOptions): Promise<void> {
 }
 
 async function rebuild(options: CompilerOptions, paths: BlogFilesPaths) {
-    await checkBlogFiles(paths);
+    try {
+        await checkBlogFiles(paths);
 
-    const timeBegin = Date.now();
+        const timeBegin = Date.now();
 
-    const targets = new Set(options.targets);
-    // TODO: 现在只有 article.tsx, 需要支持其他 target
+        const targets = new Set(options.targets);
+        // TODO: 现在只有 article.tsx, 需要支持其他 target
 
-    const markdown = await fs
-        .readFile(paths['article.md'], 'utf-8')
-        .catch((e) => panic(`无法读取 ${paths['article.md']}`));
-    const tsx = await fs
-        .readFile(paths['article.tsx'], 'utf-8')
-        .catch((e) => panic(`无法读取 ${paths['article.tsx']}`));
-    const compiler = Compiler.getInstance(options);
-    const blogObjectString = compiler.compileMarkdown(markdown);
-    const result = mixBlogIntoTsx(tsx, blogObjectString);
+        const markdown = await fs.readFile(paths['article.md'], 'utf-8').catch((e) => {
+            throw `无法读取 ${paths['article.md']}`;
+        });
+        const tsx = await fs.readFile(paths['article.tsx'], 'utf-8').catch((e) => {
+            throw `无法读取 ${paths['article.tsx']}`;
+        });
 
-    const buildTime = ((Date.now() - timeBegin) / 1000).toFixed(3);
-    debug.withTime.info(`编译完成, 用时 ${buildTime} 秒.`);
-    console.log();
+        const compiler = Compiler.getInstance(options);
+        const blogObjectString = compiler.compileMarkdown(markdown);
+        const result = mixBlogIntoTsx(tsx, blogObjectString);
 
-    if (options.outputTo === 'fs') {
-        const outputPaths = getOutputFilesPaths(options.outputDir);
-        try {
-            await fs.writeFile(outputPaths['article.tsx'], result, { encoding: 'utf-8' });
-        } catch (e) {
-            debug.error(`写入 ${outputPaths['article.tsx']} 失败.`);
-            throw e;
+        const buildTime = ((Date.now() - timeBegin) / 1000).toFixed(3);
+        debug.withTime.info(`编译完成, 用时 ${buildTime} 秒.`);
+        console.log();
+
+        if (options.outputTo === 'fs') {
+            const outputPaths = getOutputFilesPaths(options.outputDir);
+            try {
+                await fs.writeFile(outputPaths['article.tsx'], result, {
+                    encoding: 'utf-8',
+                });
+            } catch (e) {
+                debug.error(`写入 ${outputPaths['article.tsx']} 失败.`);
+                console.error(e);
+            }
+            return;
         }
-        return;
-    }
-    if (options.outputTo === 'receiver') {
-        options.receiver([
-            {
-                name: 'article.tsx',
-                text: result,
-            },
-        ]);
+        if (options.outputTo === 'receiver') {
+            options.receiver([
+                {
+                    name: 'article.tsx',
+                    text: result,
+                },
+            ]);
+            return;
+        }
+    } catch (reason) {
+        debug.error(reason as string);
         return;
     }
 }

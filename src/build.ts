@@ -7,47 +7,55 @@ import { Compiler } from './compiler/compiler';
 export async function build(options: CompilerOptions): Promise<void> {
     await checkCompilerOptions(options);
     const paths = getBlogFilesPaths(options.blogDir);
-    await checkBlogFiles(paths);
 
-    const timeBegin = Date.now();
+    try {
+        await checkBlogFiles(paths);
 
-    const targets = new Set(options.targets);
-    // TODO: 现在只有 article.tsx, 需要支持其他 target
+        const timeBegin = Date.now();
 
-    const markdown = await fs
-        .readFile(paths['article.md'], 'utf-8')
-        .catch((e) => panic(`无法读取 ${paths['article.md']}`));
-    const tsx = await fs
-        .readFile(paths['article.tsx'], 'utf-8')
-        .catch((e) => panic(`无法读取 ${paths['article.tsx']}`));
+        const targets = new Set(options.targets);
+        // TODO: 现在只有 article.tsx, 需要支持其他 target
 
-    const compiler = Compiler.getInstance(options);
-    const blogObjectString = compiler.compileMarkdown(markdown);
-    const result = mixBlogIntoTsx(tsx, blogObjectString);
+        const markdown = await fs
+            .readFile(paths['article.md'], 'utf-8')
+            .catch((e) => panic(`无法读取 ${paths['article.md']}`));
+        const tsx = await fs
+            .readFile(paths['article.tsx'], 'utf-8')
+            .catch((e) => panic(`无法读取 ${paths['article.tsx']}`));
 
-    const buildTime = ((Date.now() - timeBegin) / 1000).toFixed(3);
-    debug.info(`编译完成, 用时 ${buildTime} 秒.`);
+        const compiler = Compiler.getInstance(options);
+        const blogObjectString = compiler.compileMarkdown(markdown);
 
-    if (options.outputTo === 'fs') {
-        const outputPaths = getOutputFilesPaths(options.outputDir);
+        const result = mixBlogIntoTsx(tsx, blogObjectString);
 
-        try {
-            await fs.writeFile(outputPaths['article.tsx'], result, { encoding: 'utf-8' });
-        } catch (e) {
-            debug.error(`写入 ${outputPaths['article.tsx']} 失败.`);
-            throw e;
+        const buildTime = ((Date.now() - timeBegin) / 1000).toFixed(3);
+        debug.info(`编译完成, 用时 ${buildTime} 秒.`);
+
+        if (options.outputTo === 'fs') {
+            const outputPaths = getOutputFilesPaths(options.outputDir);
+
+            try {
+                await fs.writeFile(outputPaths['article.tsx'], result, {
+                    encoding: 'utf-8',
+                });
+            } catch (e) {
+                debug.error(`写入 ${outputPaths['article.tsx']} 失败.`);
+                throw e;
+            }
+            return;
         }
-        return;
-    }
 
-    if (options.outputTo === 'receiver') {
-        options.receiver([
-            {
-                name: 'article.tsx',
-                text: result,
-            },
-        ]);
-        return;
+        if (options.outputTo === 'receiver') {
+            options.receiver([
+                {
+                    name: 'article.tsx',
+                    text: result,
+                },
+            ]);
+            return;
+        }
+    } catch (reason) {
+        panic(reason as string);
     }
 }
 
@@ -99,9 +107,11 @@ export async function checkBlogFiles(paths: BlogFilesPaths): Promise<void> {
         files.map((f) =>
             fs.stat(paths[f]).then(
                 (stat) => {
-                    if (!stat.isFile()) panic(`<BlogDir>/${f} 不是文件.`);
+                    if (!stat.isFile()) throw `<BlogDir>/${f} 不是文件.`;
                 },
-                (e) => panic(`<BlogDir>/${f} 不存在, 或其他错误.`),
+                (e) => {
+                    throw `<BlogDir>/${f} 不存在, 或其他错误.`;
+                },
             ),
         ),
     );
@@ -110,7 +120,7 @@ export async function checkBlogFiles(paths: BlogFilesPaths): Promise<void> {
 export function mixBlogIntoTsx(tsx: string, blogObjectString: string): string {
     const blogDeclaration = 'declare function blog(): Blog;';
     if (tsx.indexOf(blogDeclaration) === -1) {
-        panic(`在 article.tsx 未找到 \`${ blogDeclaration }\` 声明.`);
+        throw `在 article.tsx 未找到 \`${blogDeclaration}\` 声明.`;
     }
 
     tsx = tsx.replace(
