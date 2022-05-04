@@ -8,12 +8,14 @@ import { build, watch } from 'justmark';
 build({
     blogDir: '../blogs/it-s-a-good-day',
     targets: ['article.tsx'],
-    outputTo: 'file',
-    outputFile: '/path/to/result',
+    outputTo: 'fs',
+    outputDir: '/path/to/result',
 }).then(() => {
     // ...
 });
 ```
+
+在 `./test` 下有一个用例.
 
 ## JustMark 约定
 
@@ -23,7 +25,7 @@ build({
     - Line ending: LF
 2. 文件头可放置博客的元数据
 
-    例如
+    语言格式为 toml. 例:
     ````toml
     ```blog
     copyright = 'CC BY-ND 4.0'
@@ -63,3 +65,4 @@ title = '标题'              # 若指定了该项, markdown 中的第一个一�
 - Code block: title, line numbers, Highlighting specific lines
 - Content tabs
 - flow chart
+- 

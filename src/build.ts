@@ -1,7 +1,7 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { CompilerOptions } from './types';
-import { debug, panic, panicIfNot } from './debug';
+import { debug, panic, panicIfNot } from './utils/debug';
 import { Compiler } from './compiler/compiler';
 
 export async function build(options: CompilerOptions): Promise<void> {
@@ -74,7 +74,7 @@ export async function checkCompilerOptions(options: CompilerOptions): Promise<vo
     }
 }
 
-interface BlogFilesPaths {
+export interface BlogFilesPaths {
     'article.md': string;
     'article.tsx': string;
 }
@@ -99,9 +99,9 @@ export async function checkBlogFiles(paths: BlogFilesPaths): Promise<void> {
         files.map((f) =>
             fs.stat(paths[f]).then(
                 (stat) => {
-                    if (!stat.isFile()) panic(`JustMark: <BlogDir>/${f} 不是文件.`);
+                    if (!stat.isFile()) panic(`<BlogDir>/${f} 不是文件.`);
                 },
-                (e) => panic(`JustMark: <BlogDir>/${f} 不存在, 或其他错误.`),
+                (e) => panic(`<BlogDir>/${f} 不存在, 或其他错误.`),
             ),
         ),
     );
