@@ -1,5 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
+import prettier from 'prettier';
 import { CompilerOptions } from './types';
 import { debug, panic, panicIfNot } from './utils/debug';
 import { Compiler } from './compiler/compiler';
@@ -26,7 +27,7 @@ export async function build(options: CompilerOptions): Promise<void> {
         const compiler = Compiler.getInstance(options);
         const blogObjectString = compiler.compileMarkdown(markdown);
 
-        const result = mixBlogIntoTsx(tsx, blogObjectString);
+        const result = await format(mixBlogIntoTsx(tsx, blogObjectString));
 
         const buildTime = ((Date.now() - timeBegin) / 1000).toFixed(3);
         debug.info(`编译完成, 用时 ${buildTime} 秒.`);
@@ -129,4 +130,20 @@ export function mixBlogIntoTsx(tsx: string, blogObjectString: string): string {
     );
 
     return tsx;
+}
+
+const prettierrcPromise = prettier.resolveConfig(
+    path.resolve(__dirname, '../.prettierrc.toml'),
+);
+
+export async function format(source: string): Promise<string> {
+    const prettierrc = await prettierrcPromise;
+    if (!prettierrc) {
+        debug.error('无法读取 justmark/.prettierrc.toml, 未执行输出文件的格式化.');
+        return source;
+    }
+    return prettier.format(source, {
+        ...prettierrc,
+        parser: 'typescript',
+    });
 }

@@ -5,6 +5,7 @@ import {
     BlogFilesPaths,
     checkBlogFiles,
     checkCompilerOptions,
+    format,
     getBlogFilesPaths,
     getOutputFilesPaths,
     mixBlogIntoTsx,
@@ -62,7 +63,7 @@ async function rebuild(options: CompilerOptions, paths: BlogFilesPaths) {
 
         const compiler = Compiler.getInstance(options);
         const blogObjectString = compiler.compileMarkdown(markdown);
-        const result = mixBlogIntoTsx(tsx, blogObjectString);
+        const result = await format(mixBlogIntoTsx(tsx, blogObjectString));
 
         const buildTime = ((Date.now() - timeBegin) / 1000).toFixed(3);
         debug.withTime.info(`编译完成, 用时 ${buildTime} 秒.`);

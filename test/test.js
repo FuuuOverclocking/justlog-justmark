@@ -1,11 +1,17 @@
 const justmark = require('../build/index');
 
-justmark.watch({
-    blogDir: './test',
-    targets: ['article.tsx'],
-    outputTo: 'fs',
-    outputDir: './test-out',
-});
-// .then(() => {
-//     console.log('OK');
-// });
+justmark
+    .build({
+        blogDir: './test',
+        targets: ['article.tsx'],
+        outputTo: 'fs',
+        outputDir: './test-out',
+    })
+    .then(() => {
+        justmark.watch({
+            blogDir: './test',
+            targets: ['article.tsx'],
+            outputTo: 'fs',
+            outputDir: './test-out',
+        });
+    });
