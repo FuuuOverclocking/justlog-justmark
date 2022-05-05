@@ -61,7 +61,7 @@ const thirdPartyPlugins = [
     require('markdown-it-textual-uml'),
 ];
 
-const htmlToJsxConverter = new HTMLtoJSX({ createClass: false });
+const htmlToJsxConverter = new HTMLtoJSX({ createClass: false, indent: '    ' });
 
 function generateMarkdownIt(
     options: CompilerOptions,

@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
 import { CompilerOptions } from './types';
-import { debug, panic, panicIfNot } from './utils/debug';
+import { debug } from './utils/debug';
 import {
     BlogFilesPaths,
     checkBlogFiles,
@@ -66,7 +66,6 @@ async function rebuild(options: CompilerOptions, paths: BlogFilesPaths) {
 
         const buildTime = ((Date.now() - timeBegin) / 1000).toFixed(3);
         debug.withTime.info(`编译完成, 用时 ${buildTime} 秒.`);
-        console.log();
 
         if (options.outputTo === 'fs') {
             const outputPaths = getOutputFilesPaths(options.outputDir);
@@ -92,5 +91,7 @@ async function rebuild(options: CompilerOptions, paths: BlogFilesPaths) {
     } catch (reason) {
         debug.error(reason as string);
         return;
+    } finally {
+        console.log();
     }
 }
