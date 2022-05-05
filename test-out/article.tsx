@@ -1,4 +1,4 @@
-import { Blog } from './types';
+/// <reference path="../lib/article.d.ts" />
 
 function blog(): Blog {
     return {
@@ -13,6 +13,103 @@ function blog(): Blog {
                 <h1>博客标题</h1>
                 <p>
                     博客内容<sub>a</sub>
+                </p>
+                <p className="katex-block">
+                    <span className="katex-display">
+                        <span className="katex">
+                            <span className="katex-mathml">
+                                <math
+                                    xmlns="http://www.w3.org/1998/Math/MathML"
+                                    display="block"
+                                >
+                                    <semantics>
+                                        <mrow>
+                                            <mi>E</mi>
+                                            <mo>=</mo>
+                                            <mi>m</mi>
+                                            <msup>
+                                                <mi>c</mi>
+                                                <mn>2</mn>
+                                            </msup>
+                                        </mrow>
+                                        <annotation encoding="application/x-tex">
+                                            E=mc^2
+                                        </annotation>
+                                    </semantics>
+                                </math>
+                            </span>
+                            <span className="katex-html" aria-hidden="true">
+                                <span className="base">
+                                    <span
+                                        className="strut"
+                                        style={{
+                                            height: '0.68333em',
+                                            verticalAlign: '0em',
+                                        }}
+                                    />
+                                    <span
+                                        className="mord mathnormal"
+                                        style={{ marginRight: '0.05764em' }}
+                                    >
+                                        E
+                                    </span>
+                                    <span
+                                        className="mspace"
+                                        style={{ marginRight: '0.2777777777777778em' }}
+                                    />
+                                    <span className="mrel">=</span>
+                                    <span
+                                        className="mspace"
+                                        style={{ marginRight: '0.2777777777777778em' }}
+                                    />
+                                </span>
+                                <span className="base">
+                                    <span
+                                        className="strut"
+                                        style={{
+                                            height: '0.8641079999999999em',
+                                            verticalAlign: '0em',
+                                        }}
+                                    />
+                                    <span className="mord mathnormal">m</span>
+                                    <span className="mord">
+                                        <span className="mord mathnormal">c</span>
+                                        <span className="msupsub">
+                                            <span className="vlist-t">
+                                                <span className="vlist-r">
+                                                    <span
+                                                        className="vlist"
+                                                        style={{
+                                                            height: '0.8641079999999999em',
+                                                        }}
+                                                    >
+                                                        <span
+                                                            style={{
+                                                                top: '-3.113em',
+                                                                marginRight: '0.05em',
+                                                            }}
+                                                        >
+                                                            <span
+                                                                className="pstrut"
+                                                                style={{
+                                                                    height: '2.7em',
+                                                                }}
+                                                            />
+                                                            <span className="sizing reset-size6 size3 mtight">
+                                                                <span className="mord mtight">
+                                                                    2
+                                                                </span>
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </span>
+                                            </span>
+                                        </span>
+                                    </span>
+                                </span>
+                            </span>
+                        </span>
+                    </span>
                 </p>
                 <table>
                     <thead>
@@ -43,6 +140,12 @@ function blog(): Blog {
             </div>
         ),
     };
+}
+
+function blogExtended(): Blog {
+    return Object.assign(blog(), {
+        // ...
+    });
 }
 
 function Button() {
