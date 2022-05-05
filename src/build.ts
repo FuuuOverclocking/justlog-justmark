@@ -142,8 +142,14 @@ export async function format(source: string): Promise<string> {
         debug.error('无法读取 justmark/.prettierrc.toml, 未执行输出文件的格式化.');
         return source;
     }
-    return prettier.format(source, {
-        ...prettierrc,
-        parser: 'typescript',
-    });
+
+    try {
+        return prettier.format(source, {
+            ...prettierrc,
+            parser: 'typescript',
+        });
+    } catch (e) {
+        debug.error('prettier 格式化文件时发生了错误, 输出未格式化文件.');
+        return source;
+    }
 }
