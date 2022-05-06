@@ -1,98 +1,78 @@
 import fs from 'fs-extra';
 import { CompilerOptions } from './types';
-import { debug } from './utils/debug';
-import {
-    BlogFilesPaths,
-    checkBlogFiles,
-    checkCompilerOptions,
-    format,
-    getBlogFilesPaths,
-    getOutputFilesPaths,
-    mixBlogIntoTsx,
-} from './build';
-import { Compiler } from './compiler/compiler';
-import { debounce } from './utils/tools';
+import { debug, DebugLevel, setDebugLevel } from './utils/debug';
+import { checkCompilerOptions, getBlogFilesPaths, rebuild } from './build-steps';
 
-export async function watch(options: CompilerOptions): Promise<void> {
+/**
+ * 监视给定博客文件夹, 持续编译到给定目标, 输出到文件系统, 或调用用户提供的 receiver.
+ *
+ * 容忍输入的博客文件的错误. 当输入文件恢复正确时, 能再次编译.
+ *
+ * @param options 编译选项
+ * @returns 检查编译器选项后, Promise resolve; 编译器选项错误时, 终止程序.
+ *          调用 stopWatch 可停止监视.
+ */
+export async function watch(
+    options: CompilerOptions,
+): Promise<{ stopWatch: () => void }> {
+    if (options.silent) setDebugLevel(DebugLevel.None);
+
     await checkCompilerOptions(options);
     const paths = getBlogFilesPaths(options.blogDir);
 
+    // rebuild 执行的规则:
+    // 1. 完成了一次 rebuild 后, 才能进行下次 rebuild
+    // 2. 每秒最多只能调用一次 rebuild, 多余的 rebuild 被忽略
+    // 3. 最后可能要补一次 rebuild, 使最终一致
+    // 4. 应该尽快调用 rebuild, 但不能违反上面 3 条
     let isBuilding = false;
-    let shouldBuildAgain = false;
-    const onFilesChange = debounce(() => {
-        if (isBuilding) {
-            shouldBuildAgain = true;
+    let isLatest = false;
+    let lastBuildAt = -1;
+    const onFilesChange = () => {
+        if (isBuilding || Date.now() < lastBuildAt + 1000) {
+            isLatest = false;
             return;
         }
 
-        isBuilding = true;
-        shouldBuildAgain = false;
         debug.withTime.info(`文件发生变化, 正在编译...`);
-        rebuild(options, paths).then(() => {
-            isBuilding = false;
-            if (shouldBuildAgain) onFilesChange();
-        });
-    }, 500);
+        wrapper();
+    };
+    const wrapper = async () => {
+        isBuilding = true;
+        isLatest = true;
+        lastBuildAt = Date.now();
 
-    fs.watch(paths['article.md'], onFilesChange);
-    fs.watch(paths['article.tsx'], onFilesChange);
-
-    debug.withTime.info('在 watch 模式下开始编译...');
-    isBuilding = true;
-    rebuild(options, paths).then(() => {
-        isBuilding = false;
-        if (shouldBuildAgain) onFilesChange();
-    });
-}
-
-async function rebuild(options: CompilerOptions, paths: BlogFilesPaths) {
-    try {
-        await checkBlogFiles(paths);
-
-        const timeBegin = Date.now();
-
-        const targets = new Set(options.targets);
-        // TODO: 现在只有 article.tsx, 需要支持其他 target
-
-        const markdown = await fs.readFile(paths['article.md'], 'utf-8').catch((e) => {
-            throw `无法读取 ${paths['article.md']}`;
-        });
-        const tsx = await fs.readFile(paths['article.tsx'], 'utf-8').catch((e) => {
-            throw `无法读取 ${paths['article.tsx']}`;
-        });
-
-        const compiler = Compiler.getInstance(options);
-        const blogObjectString = compiler.compileMarkdown(markdown);
-        const result = await format(mixBlogIntoTsx(tsx, blogObjectString));
-
-        const buildTime = ((Date.now() - timeBegin) / 1000).toFixed(3);
-        debug.withTime.info(`编译完成, 用时 ${buildTime} 秒.`);
-
-        if (options.outputTo === 'fs') {
-            const outputPaths = getOutputFilesPaths(options.outputDir);
-            try {
-                await fs.writeFile(outputPaths['article.tsx'], result, {
-                    encoding: 'utf-8',
-                });
-            } catch (e) {
-                debug.error(`写入 ${outputPaths['article.tsx']} 失败.`);
-                console.error(e);
+        try {
+            await rebuild(options, paths);
+        } catch (e) {
+            if (e instanceof Error) {
+                debug.error((e as Error).message);
+            } else {
+                debug.error(String(e));
             }
-            return;
+        } finally {
+            debug.raw.info(); // 打印换行符, 分隔前后行
         }
-        if (options.outputTo === 'receiver') {
-            options.receiver([
-                {
-                    name: 'article.tsx',
-                    text: result,
-                },
-            ]);
-            return;
+
+        isBuilding = false;
+        if (!isLatest) {
+            const willRebuildAt = lastBuildAt + 1200;
+            const timeLeft = Math.max(0, willRebuildAt - Date.now());
+            setTimeout(onFilesChange, timeLeft);
         }
-    } catch (reason) {
-        debug.error(reason as string);
-        return;
-    } finally {
-        console.log();
-    }
+    };
+
+    const watchers = [
+        fs.watch(paths['article.md'], onFilesChange),
+        fs.watch(paths['article.tsx'], onFilesChange),
+    ];
+
+    debug.withTime.info('在监视模式下开始编译...');
+    wrapper();
+
+    return {
+        stopWatch(): void {
+            watchers.forEach((w) => w.close());
+        },
+    };
 }

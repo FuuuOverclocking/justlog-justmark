@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 
-const enum DebugLevel {
+export enum DebugLevel {
     Info,
     Warn,
     Error,
@@ -12,6 +12,10 @@ let currDebugLevel = DebugLevel.Info;
 function log(level: DebugLevel, msg: string): void {
     if (level < currDebugLevel) return;
     console.log(msg);
+}
+
+export function setDebugLevel(level: DebugLevel): void {
+    currDebugLevel = level;
 }
 
 export const debug = {
@@ -26,6 +30,17 @@ export const debug = {
     error(msg: string) {
         msg = chalk.bold.red('[JustMark]: ') + msg;
         log(DebugLevel.Error, msg);
+    },
+    raw: {
+        info(msg: string = '') {
+            log(DebugLevel.Info, msg);
+        },
+        warn(msg: string = '') {
+            log(DebugLevel.Warn, msg);
+        },
+        error(msg: string = '') {
+            log(DebugLevel.Error, msg);
+        },
     },
     withTime: {
         info(msg: string) {

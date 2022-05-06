@@ -1,8 +1,18 @@
 import { ReactNode } from 'react';
 
 export type CompilerOptions = {
+    /**
+     * 输入的博客文件夹.
+     */
     blogDir: string;
-    targets: Array<'article.tsx' | 'zhihu.md'>;
+    /**
+     * 编译目标.
+     */
+    targets: Array<'article.tsx' | 'bundle.js' | 'zhihu.md'>;
+    /**
+     * silent = true 时, 禁止在终端打印各种信息.
+     */
+    silent?: boolean;
 } & OutputOptions;
 
 export type OutputOptions =
