@@ -1,9 +1,9 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { MdCompiler } from './compiler/md-compiler';
-import { format } from './formatter';
-import { BuildStep, CompilationResult, CompilerOptions, Source, Target } from './types';
+import { format } from './utils/formatter';
 import { debug, panic, panicIfNot } from './utils/debug';
+import { BuildStep, CompilationResult, CompilerOptions, Source, Target } from './types';
 
 type BlogFilesPaths = Record<Source, string>;
 
@@ -51,7 +51,7 @@ export async function checkCompilerOptions(options: CompilerOptions): Promise<vo
     } else if (options.outputTo === 'receiver') {
         panicIfNot(
             typeof options.receiver === 'function',
-            'outputTo 设置为了 "receiver", 但 receiver 不是 (results: CompilationResult[]) => void.',
+            'outputTo 设置为了 "receiver", 但 receiver 不是 (results: CompilationResult) => void.',
         );
     } else {
         panic('未设置 outputTo.');
@@ -75,7 +75,8 @@ async function checkBlogFiles(paths: BlogFilesPaths): Promise<void> {
                     if (!stat.isFile()) throw new Error(`<BlogDir>/${f} 不是文件.`);
                 },
                 (e) => {
-                    throw new Error(`<BlogDir>/${f} 不存在, 或其他错误.`);
+                    debug.withTime.error(`<BlogDir>/${f} 不存在, 或其他错误.`);
+                    throw e;
                 },
             ),
         ),
