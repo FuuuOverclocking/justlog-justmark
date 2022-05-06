@@ -1,5 +1,9 @@
 import chalk from 'chalk';
 
+const moduleName = 'JustMark';
+
+const logPrefix = `[${moduleName}]: `;
+
 export enum DebugLevel {
     Info,
     Warn,
@@ -20,15 +24,15 @@ export function setDebugLevel(level: DebugLevel): void {
 
 export const debug = {
     info(msg: string) {
-        msg = chalk.bold.cyan('[JustMark]: ') + msg;
+        msg = chalk.bold.cyan(logPrefix) + msg;
         log(DebugLevel.Info, msg);
     },
     warn(msg: string) {
-        msg = chalk.bold.yellow('[JustMark]: ') + msg;
+        msg = chalk.bold.yellow(logPrefix) + msg;
         log(DebugLevel.Warn, msg);
     },
     error(msg: string) {
-        msg = chalk.bold.red('[JustMark]: ') + msg;
+        msg = chalk.bold.red(logPrefix) + msg;
         log(DebugLevel.Error, msg);
     },
     raw: {
@@ -46,21 +50,21 @@ export const debug = {
         info(msg: string) {
             msg =
                 chalk.grey(`[${new Date().toLocaleTimeString()}] `) +
-                chalk.bold.cyan('[JustMark]: ') +
+                chalk.bold.cyan(logPrefix) +
                 msg;
             log(DebugLevel.Info, msg);
         },
         warn(msg: string) {
             msg =
                 chalk.grey(`[${new Date().toLocaleTimeString()}] `) +
-                chalk.bold.yellow('[JustMark]: ') +
+                chalk.bold.yellow(logPrefix) +
                 msg;
             log(DebugLevel.Warn, msg);
         },
         error(msg: string) {
             msg =
                 chalk.grey(`[${new Date().toLocaleTimeString()}] `) +
-                chalk.bold.red('[JustMark]: ') +
+                chalk.bold.red(logPrefix) +
                 msg;
             log(DebugLevel.Error, msg);
         },

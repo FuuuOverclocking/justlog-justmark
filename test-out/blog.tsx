@@ -142,7 +142,7 @@ function blog(): Blog {
                         </tr>
                     </tbody>
                 </table>
-                <Button />
+                <Button>按钮</Button>
             </div>
         ),
     };

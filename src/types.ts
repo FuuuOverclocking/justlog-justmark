@@ -1,10 +1,13 @@
 import { ReactNode } from 'react';
 
+export type Source = 'article.md' | 'article.tsx';
+export type Target = 'blog.tsx' | 'blog-bundle.js' | 'zhihu.md';
+
 export type CompilerOptions = {
     /** 输入的博客文件夹. */
     blogDir: string;
     /** 编译目标. */
-    targets: Array<'article.tsx' | 'bundle.js' | 'zhihu.md'>;
+    targets: Target[];
     /** silent = true 时, 禁止在终端打印各种信息. */
     silent?: boolean;
 } & OutputOptions;
@@ -16,13 +19,18 @@ export type OutputOptions =
       }
     | {
           outputTo: 'receiver';
-          receiver: (results: CompilationResult[]) => void;
+          receiver: (results: CompilationResult) => void;
       };
 
-export interface CompilationResult {
-    name: string;
-    text: string;
-}
+export type CompilationResult = {
+    [target in Target]?: string;
+};
+
+export type BuildStep = (
+    sources: { 'article.md': string; 'article.tsx': string },
+    result: CompilationResult,
+    options: CompilerOptions,
+) => Promise<void>;
 
 export interface BlogMeta {
     title: string;
@@ -33,5 +41,5 @@ export interface BlogMeta {
 }
 
 export interface Blog extends BlogMeta {
-    content: ReactNode,
+    content: ReactNode;
 }

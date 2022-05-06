@@ -12,15 +12,14 @@ export async function build(options: CompilerOptions): Promise<void> {
     if (options.silent) setDebugLevel(DebugLevel.None);
     
     await checkCompilerOptions(options);
-    const paths = getBlogFilesPaths(options.blogDir);
 
     try {
-        await rebuild(options, paths);
+        await rebuild(options);
     } catch (e) {
         if (e instanceof Error) {
-            debug.error((e as Error).message);
+            debug.withTime.error((e as Error).message);
         } else {
-            debug.error(String(e));
+            debug.withTime.error(String(e));
         }
         throw e;
     }

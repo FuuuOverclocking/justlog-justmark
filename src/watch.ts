@@ -28,7 +28,7 @@ export async function watch(
     let isBuilding = false;
     let isLatest = false;
     let lastBuildAt = -1;
-    const onFilesChange = () => {
+    const onSourcesChange = () => {
         if (isBuilding || Date.now() < lastBuildAt + 1000) {
             isLatest = false;
             return;
@@ -43,12 +43,12 @@ export async function watch(
         lastBuildAt = Date.now();
 
         try {
-            await rebuild(options, paths);
+            await rebuild(options);
         } catch (e) {
             if (e instanceof Error) {
-                debug.error((e as Error).message);
+                debug.withTime.error((e as Error).message);
             } else {
-                debug.error(String(e));
+                debug.withTime.error(String(e));
             }
         } finally {
             debug.raw.info(); // 打印换行符, 分隔前后行
@@ -58,13 +58,13 @@ export async function watch(
         if (!isLatest) {
             const willRebuildAt = lastBuildAt + 1200;
             const timeLeft = Math.max(0, willRebuildAt - Date.now());
-            setTimeout(onFilesChange, timeLeft);
+            setTimeout(onSourcesChange, timeLeft);
         }
     };
 
     const watchers = [
-        fs.watch(paths['article.md'], onFilesChange),
-        fs.watch(paths['article.tsx'], onFilesChange),
+        fs.watch(paths['article.md'], onSourcesChange),
+        fs.watch(paths['article.tsx'], onSourcesChange),
     ];
 
     debug.withTime.info('在监视模式下开始编译...');

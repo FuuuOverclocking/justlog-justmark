@@ -1,52 +1,38 @@
 import fs from 'fs-extra';
 import path from 'path';
-import prettier from 'prettier';
-import { Compiler } from './compiler/compiler';
-import { CompilerOptions } from './types';
+import { MdCompiler } from './compiler/md-compiler';
+import { format } from './formatter';
+import { BuildStep, CompilationResult, CompilerOptions, Source, Target } from './types';
 import { debug, panic, panicIfNot } from './utils/debug';
 
-export async function rebuild(options: CompilerOptions, paths: BlogFilesPaths) {
-    await checkBlogFiles(paths);
+type BlogFilesPaths = Record<Source, string>;
 
+export async function rebuild(options: CompilerOptions) {
     const timeBegin = Date.now();
 
-    const targets = new Set(options.targets);
-    // TODO: 现在只有 article.tsx, 需要支持其他 target
-    const markdown = await fs.readFile(paths['article.md'], 'utf-8').catch((e) => {
-        throw new Error(`无法读取 ${paths['article.md']}`);
-    });
-    const tsx = await fs.readFile(paths['article.tsx'], 'utf-8').catch((e) => {
-        throw new Error(`无法读取 ${paths['article.tsx']}`);
-    });
+    const paths = getBlogFilesPaths(options.blogDir);
+    await checkBlogFiles(paths);
 
-    const compiler = Compiler.getInstance(options);
-    const blogObjectString = compiler.compileMarkdown(markdown);
-    const result = await format(mixBlogIntoTsx(tsx, blogObjectString));
+    const sources = {
+        'article.md': await fs.readFile(paths['article.md'], 'utf-8').catch((e) => {
+            throw new Error(`无法读取 ${paths['article.md']}`);
+        }),
+        'article.tsx': await fs.readFile(paths['article.tsx'], 'utf-8').catch((e) => {
+            throw new Error(`无法读取 ${paths['article.tsx']}`);
+        }),
+    };
+
+    const buildSteps = resolveTargets(options.targets);
+    const result: CompilationResult = {};
+    for (const step of buildSteps) {
+        // 向 step() 传入了 result 对象的引用, 令其修改, 从而获得结果.
+        await step(sources, result, options);
+    }
 
     const buildTime = ((Date.now() - timeBegin) / 1000).toFixed(3);
     debug.withTime.info(`编译完成, 用时 ${buildTime} 秒.`);
 
-    if (options.outputTo === 'fs') {
-        const outputPaths = getOutputFilesPaths(options.outputDir);
-        try {
-            await fs.writeFile(outputPaths['article.tsx'], result, {
-                encoding: 'utf-8',
-            });
-        } catch (e) {
-            debug.error(`写入 ${outputPaths['article.tsx']} 失败.`);
-            throw e;
-        }
-        return;
-    }
-    if (options.outputTo === 'receiver') {
-        options.receiver([
-            {
-                name: 'article.tsx',
-                text: result,
-            },
-        ]);
-        return;
-    }
+    await output(options, result);
 }
 
 export async function checkCompilerOptions(options: CompilerOptions): Promise<void> {
@@ -72,11 +58,6 @@ export async function checkCompilerOptions(options: CompilerOptions): Promise<vo
     }
 }
 
-export interface BlogFilesPaths {
-    'article.md': string;
-    'article.tsx': string;
-}
-
 export function getBlogFilesPaths(blogDir: string): BlogFilesPaths {
     return {
         'article.md': path.resolve(blogDir, './article.md'),
@@ -84,13 +65,7 @@ export function getBlogFilesPaths(blogDir: string): BlogFilesPaths {
     };
 }
 
-export function getOutputFilesPaths(outputDir: string) {
-    return {
-        'article.tsx': path.resolve(outputDir, './article.tsx'),
-    };
-}
-
-export async function checkBlogFiles(paths: BlogFilesPaths): Promise<void> {
+async function checkBlogFiles(paths: BlogFilesPaths): Promise<void> {
     const files = ['article.md', 'article.tsx'] as const;
 
     await Promise.all(
@@ -107,37 +82,97 @@ export async function checkBlogFiles(paths: BlogFilesPaths): Promise<void> {
     );
 }
 
-export function mixBlogIntoTsx(tsx: string, blogObjectString: string): string {
-    const blogDeclaration = 'declare function blog(): Blog;';
-    if (tsx.indexOf(blogDeclaration) === -1) {
-        throw new Error(`在 article.tsx 未找到 \`${blogDeclaration}\` 声明.`);
+function resolveTargets(targets: Target[]): BuildStep[] {
+    const buildStepMap = {
+        'blog.tsx': CompileMarkdownAndMix.step,
+        'blog-bundle.js': CompileTsxAndPack.step,
+        'zhihu.md': ConvertToZhihu.step,
+    };
+
+    const targetsSet = new Set(targets);
+    const buildOrder: Target[] = [];
+
+    if (targetsSet.has('blog-bundle.js')) {
+        buildOrder.push('blog.tsx', 'blog-bundle.js');
+    } else if (targetsSet.has('blog.tsx')) {
+        buildOrder.push('blog.tsx');
     }
 
-    tsx = tsx.replace(
-        blogDeclaration,
-        `function blog(): Blog { return ${blogObjectString}; }`,
-    );
+    if (targetsSet.has('zhihu.md')) {
+        buildOrder.push('zhihu.md');
+    }
 
-    return tsx;
+    return buildOrder.map((target) => buildStepMap[target]);
 }
-const prettierrcPromise = prettier.resolveConfig(
-    path.resolve(__dirname, '../.prettierrc.toml'),
-);
 
-export async function format(source: string): Promise<string> {
-    const prettierrc = await prettierrcPromise;
-    if (!prettierrc) {
-        debug.error('无法读取 justmark/.prettierrc.toml, 未执行输出文件的格式化.');
-        return source;
+async function output(options: CompilerOptions, result: CompilationResult) {
+    if (options.outputTo === 'receiver') {
+        options.receiver(result);
+        return;
     }
 
-    try {
-        return prettier.format(source, {
-            ...prettierrc,
-            parser: 'typescript',
-        });
-    } catch (e) {
-        debug.error('prettier 格式化文件时发生了错误, 输出未格式化文件.');
-        return source;
+    if (options.outputTo === 'fs') {
+        const outputPaths = getOutputFilesPaths(options.outputDir);
+        await fs.ensureDir(options.outputDir);
+
+        for (const filename of options.targets) {
+            try {
+                await fs.writeFile(outputPaths[filename], result[filename], {
+                    encoding: 'utf-8',
+                });
+            } catch (e) {
+                debug.withTime.error(`写入 ${outputPaths[filename]} 失败.`);
+                throw e;
+            }
+        }
+        return;
     }
+}
+
+function getOutputFilesPaths(outputDir: string): Record<Target, string> {
+    return {
+        'blog.tsx': path.resolve(outputDir, './blog.tsx'),
+        'blog-bundle.js': path.resolve(outputDir, './blog-bundle.js'),
+        'zhihu.md': path.resolve(outputDir, './zhihu.md'),
+    };
+}
+
+namespace CompileMarkdownAndMix {
+    export const step: BuildStep = async (sources, result, options) => {
+        const mdCompiler = MdCompiler.getInstance(options);
+        const blogObjectString = mdCompiler.compileMarkdown(sources['article.md']);
+        const { err, result: code } = await format(
+            mixBlogIntoTsx(sources['article.tsx'], blogObjectString),
+        );
+        if (err) {
+            debug.withTime.error(err);
+        }
+        result['blog.tsx'] = code;
+    };
+
+    function mixBlogIntoTsx(tsx: string, blogObjectString: string): string {
+        const blogDeclaration = 'declare function blog(): Blog;';
+        if (tsx.indexOf(blogDeclaration) === -1) {
+            throw new Error(`在 article.tsx 未找到 \`${blogDeclaration}\` 声明.`);
+        }
+
+        tsx = tsx.replace(
+            blogDeclaration,
+            `function blog(): Blog { return ${blogObjectString}; }`,
+        );
+
+        return tsx;
+    }
+}
+
+namespace CompileTsxAndPack {
+    export const step: BuildStep = async (sources, result, options) => {
+        result['blog-bundle.js'] = '';
+    };
+}
+
+namespace ConvertToZhihu {
+    export const step: BuildStep = async (sources, result, options) => {
+        result['zhihu.md'] = '';
+    };
 }

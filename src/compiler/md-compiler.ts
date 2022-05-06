@@ -5,7 +5,7 @@ import { CompilerOptions } from '../types';
 import { justmarkPlugin } from './markdown-it-justmark';
 import { RenderInfo } from './compiler-types';
 
-export class Compiler {
+export class MdCompiler {
     private mdIt: MarkdownIt;
 
     private renderInfo: Partial<RenderInfo> = {};
@@ -14,8 +14,8 @@ export class Compiler {
         this.mdIt = generateMarkdownIt(options, this.renderInfo);
     }
 
-    public static getInstance(options: CompilerOptions): Compiler {
-        return new Compiler(options);
+    public static getInstance(options: CompilerOptions): MdCompiler {
+        return new MdCompiler(options);
     }
 
     public compileMarkdown(markdown: string): string {

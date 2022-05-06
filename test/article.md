@@ -21,5 +21,5 @@ $$
 | A3       | B3       | C3       |
 
 ```tsx embed
-<Button />
+<Button>按钮</Button>
 ```
