@@ -1,13 +1,14 @@
 /// <reference path="../lib/article.d.ts" />
+import React from '#react';
 
 declare function blog(): Blog;
 
-function blogExtended(): Blog {
-    return Object.assign(blog(), {
-        // ...
-    });
+function extendBlog(): Partial<Blog> {
+    return {};
 }
 
-function Button() {
+const Button: React.FC<{
+    children: React.ReactNode;
+}> = () => {
     return <button></button>;
-}
+};

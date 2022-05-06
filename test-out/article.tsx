@@ -1,4 +1,5 @@
 /// <reference path="../lib/article.d.ts" />
+import React from '#react';
 
 function blog(): Blog {
     return {
@@ -11,8 +12,13 @@ function blog(): Blog {
         content: (
             <div>
                 <h1>博客标题</h1>
+                <p>博客内容</p>
                 <p>
-                    博客内容<sub>a</sub>
+                    <em>斜体</em> <strong>粗体</strong>{' '}
+                    <em>
+                        <strong>斜粗体</strong>
+                    </em>{' '}
+                    <sub>删除线</sub> <mark>强调</mark>
                 </p>
                 <p className="katex-block">
                     <span className="katex-display">
@@ -142,12 +148,12 @@ function blog(): Blog {
     };
 }
 
-function blogExtended(): Blog {
-    return Object.assign(blog(), {
-        // ...
-    });
+function extendBlog(): Partial<Blog> {
+    return {};
 }
 
-function Button() {
+const Button: React.FC<{
+    children: React.ReactNode;
+}> = () => {
     return <button></button>;
-}
+};

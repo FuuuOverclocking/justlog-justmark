@@ -1,3 +1,11 @@
+declare function order(id: string): any;
+
+declare namespace JSX {
+    interface IntrinsicElements {
+        [tagName: string]: any;
+    }
+}
+
 declare interface BlogMeta {
     title: string;
     copyright?: string;
@@ -10,10 +18,7 @@ declare interface Blog extends BlogMeta {
     content: any;
 }
 
-declare namespace JSX {
-    export interface IntrinsicElements {
-        [tagName: string]: any;
-    }
+declare module '#react' {
+    import * as React from 'react';
+    export = React;
 }
-
-declare function order(id: string): any;
