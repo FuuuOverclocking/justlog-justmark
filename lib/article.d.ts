@@ -15,7 +15,7 @@ declare interface BlogMeta {
 }
 
 declare interface Blog extends BlogMeta {
-    content: any;
+    content: React.ReactNode;
 }
 
 declare module '#react' {

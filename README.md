@@ -63,13 +63,13 @@ type CompilationResult = {
 
 ## JustMark 约定
 
+`article.md`:
+
 1. 编码, 行结束符, 缩进
     - Encoding: UTF-8
     - Indent: 4 spaces
     - Line ending: LF
-2. 文件头可放置博客的元数据
-
-    语言格式为 toml. 例:
+2. 文件头可放置博客的元数据, 语言格式为 toml:
     ````toml
     ```blog
     copyright = 'CC BY-ND 4.0'
@@ -78,7 +78,7 @@ type CompilationResult = {
     bgImage = './res/bg.png'    # 封面图片
     ```
     ````
-3. 第一个一级标题将成为博客的标题
+3. 第一个一级标题自动成为博客的标题
 4. 可以嵌入 React 组件
 
     ````ts
@@ -87,7 +87,51 @@ type CompilationResult = {
     ```
     ````
 
-    在嵌入的组件中使用的标识符, 应已在 `article.tsx` 中声明.
+    在嵌入的代码中使用的标识符, 需在 `article.tsx` 中定义.
+5. 支持的语法
+    - GitHub Favored Markdown
+    - 上下标
+    - 缩写
+    - 脚注
+    - 强调
+    - latex
+    - 多行表格
+    - UML, mermaid 等
+
+`article.tsx`:
+
+1. 文件头的指令 `/// <reference path="../lib/article.d.ts" />`
+    - 包含了一个类型声明文件, 声明了 `article.tsx` 下可见的类型
+    - 不可以移除, 不可以移动位置
+2. `declare function blog(): Blog;`
+    - 编译后将被替换成 `function blog(): Blog { return { ... }; }`
+    - 不可以移除
+3. `function extendBlog(): Partial<Blog> { return {}; }`
+    - 将被调用一次, 将返回值附加到 blog 对象上
+    - 可以自行修改
+4. 可以使用 `import` 语句
+    - 使用相对路径, 绝对路径时, 可以随意导入
+        - 基于 webpack, 支持导入 css, scss, jpg/png/gif/bmp, ...
+    - 使用非相对导入时, 只能支持下面一种格式
+
+        - 不能使用 `import * as XXX from 'XXX';`
+        - 不能使用 `import { ... } from 'XXX';`
+        - 模块名要附加一个前缀 `#`
+        - 只能导入有限的几个模块
+
+        例如:
+        ```ts
+        import React from '#react';
+        import chalk from '#chalk';
+        // ...
+        ```
+
+        将编译为
+        ```ts
+        const React = order('react');
+        const chalk = order('chalk');
+        // ...
+        ```
 
 ## 博客的元数据
 

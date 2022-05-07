@@ -9,6 +9,6 @@ function extendBlog(): Partial<Blog> {
 
 const Button: React.FC<{
     children: React.ReactNode;
-}> = () => {
-    return <button></button>;
+}> = (props) => {
+    return <button>{props.children}</button>;
 };

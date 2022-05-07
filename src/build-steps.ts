@@ -1,5 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
+import ts from 'typescript';
 import { MdCompiler } from './compiler/md-compiler';
 import { format } from './utils/formatter';
 import { debug, panic, panicIfNot } from './utils/debug';
@@ -128,14 +129,14 @@ async function output(options: CompilerOptions, result: CompilationResult) {
         }
         return;
     }
-}
 
-function getOutputFilesPaths(outputDir: string): Record<Target, string> {
-    return {
-        'blog.tsx': path.resolve(outputDir, './blog.tsx'),
-        'blog-bundle.js': path.resolve(outputDir, './blog-bundle.js'),
-        'zhihu.md': path.resolve(outputDir, './zhihu.md'),
-    };
+    function getOutputFilesPaths(outputDir: string): Record<Target, string> {
+        return {
+            'blog.tsx': path.resolve(outputDir, './blog.tsx'),
+            'blog-bundle.js': path.resolve(outputDir, './blog-bundle.js'),
+            'zhihu.md': path.resolve(outputDir, './zhihu.md'),
+        };
+    }
 }
 
 namespace CompileMarkdownAndMix {
@@ -167,9 +168,122 @@ namespace CompileMarkdownAndMix {
 }
 
 namespace CompileTsxAndPack {
-    export const step: BuildStep = async (sources, result, options) => {
-        result['blog-bundle.js'] = '';
+    const typescriptCompilerOptions = {
+        allowJs: true,
+        target: ts.ScriptTarget.ES2018,
+        module: ts.ModuleKind.ESNext,
+        moduleResolution: ts.ModuleResolutionKind.NodeJs,
+        newLine: ts.NewLineKind.LineFeed,
+        esModuleInterop: true,
+        strict: true,
+        skipLibCheck: true,
+        jsx: ts.JsxEmit.React,
     };
+
+    export const step: BuildStep = async (sources, result, options) => {
+        const codeInput = result['blog.tsx']!;
+        const sourceFile = ts.createSourceFile(
+            'blog.tsx',
+            codeInput,
+            ts.ScriptTarget.ES2018,
+            true,
+            ts.ScriptKind.TSX,
+        );
+        const importDeclToTranspile = findImportDeclToTranspile(sourceFile);
+        const codeImportTranspiled = transpileImportDecl(
+            codeInput,
+            importDeclToTranspile,
+        );
+
+        const codeOutput = ts.transpileModule(codeImportTranspiled, {
+            compilerOptions: typescriptCompilerOptions,
+        });
+
+        result['blog-bundle.js'] = codeOutput.outputText;
+        // TODO: 用 webpack 打包
+    };
+
+    function findImportDeclToTranspile(sourceFile: ts.SourceFile): Array<{
+        name: string;
+        moduleName: string;
+        pos: number;
+        end: number;
+    }> {
+        const importDeclToTranspile: Array<{
+            name: string;
+            moduleName: string;
+            pos: number;
+            end: number;
+        }> = [];
+
+        ts.forEachChild(sourceFile, (node) => {
+            const _node = node as ts.ImportDeclaration;
+            if (_node.kind !== ts.SyntaxKind.ImportDeclaration) return;
+
+            const moduleSpecifier = _node.moduleSpecifier as ts.StringLiteral;
+            if (moduleSpecifier.kind !== ts.SyntaxKind.StringLiteral) {
+                throw new Error('import 语句不符合 TypeScript 语法.');
+            }
+
+            const moduleName = moduleSpecifier.text;
+            if (
+                !moduleName.startsWith('./') &&
+                !moduleName.startsWith('../') &&
+                !moduleName.startsWith('/') &&
+                !moduleName.startsWith('#')
+            ) {
+                throw new Error('不能在 JustMark 中直接使用非相对导入.');
+            }
+            if (!moduleName.startsWith('#')) return;
+
+            const importClause = _node.importClause as ts.ImportClause;
+            if (importClause.isTypeOnly) {
+                throw new Error('不能在 JustMark 中使用 import type ...');
+            }
+            if (importClause.namedBindings) {
+                throw new Error('不能在 JustMark 中使用导入命名绑定.');
+            }
+            if (!importClause.name) {
+                throw new Error('非相对导入的 importClause 的标识符不存在.');
+            }
+
+            importDeclToTranspile.push({
+                name: importClause.name.escapedText as string,
+                moduleName,
+                pos: _node.pos + _node.getLeadingTriviaWidth(),
+                end: _node.end,
+            });
+        });
+
+        return importDeclToTranspile;
+    }
+
+    function transpileImportDecl(
+        codeInput: string,
+        importDeclToTranspile: Array<{
+            name: string;
+            moduleName: string;
+            pos: number;
+            end: number;
+        }>,
+    ): string {
+        const originalParts: string[] = [];
+        let pos = 0;
+        for (const decl of importDeclToTranspile) {
+            originalParts.push(codeInput.substring(pos, decl.pos));
+            pos = decl.end;
+        }
+        originalParts.push(codeInput.substring(pos));
+
+        let codeImportTranspiled = '';
+        for (const [i, decl] of importDeclToTranspile.entries()) {
+            codeImportTranspiled += originalParts[i];
+            codeImportTranspiled += `const ${decl.name} = order('${decl.moduleName}');`;
+        }
+        codeImportTranspiled += originalParts[originalParts.length - 1];
+
+        return codeImportTranspiled;
+    }
 }
 
 namespace ConvertToZhihu {
